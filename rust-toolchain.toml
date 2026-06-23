@@ -1,0 +1,7 @@
+[toolchain]
+# Pinning the channel keeps local and CI Rust builds consistent.
+# NOTE: the workspace does not build on the historically-declared MSRV (1.70):
+# `env_logger 0.11` requires a newer Cargo feature resolver. Use a recent
+# stable toolchain instead.
+channel = "stable"
+components = ["rustfmt", "clippy"]

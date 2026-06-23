@@ -1,0 +1,43 @@
+name: test
+
+on:
+    pull_request:
+    push:
+        branches: [main]
+
+jobs:
+    python-tests:
+        runs-on: ubuntu-latest
+        steps:
+        -   uses: actions/checkout@v4
+            with:
+                # Benchmark QASM files live in git submodules and are required
+                # by several tests in tests/.
+                submodules: recursive
+        -   uses: actions/setup-python@v5
+            with:
+                python-version: '3.11'
+        -   name: Install Rust toolchain
+            uses: dtolnay/rust-toolchain@stable
+        -   name: Install uv
+            uses: astral-sh/setup-uv@v5
+        -   name: Build and install (with Rust extension)
+            run: uv sync --all-extras
+        -   name: Run Python tests
+            run: uv run pytest tests/
+
+    rust-tests:
+        runs-on: ubuntu-latest
+        steps:
+        -   uses: actions/checkout@v4
+        -   uses: actions/setup-python@v5
+            with:
+                python-version: '3.11'
+        -   name: Install Rust toolchain
+            uses: dtolnay/rust-toolchain@stable
+        -   name: Run Rust tests
+            # The pyext crate links libpython for standalone (non extension-module)
+            # test builds, so it must be on the dynamic linker path. See rust/README.md.
+            run: |
+                export LD_LIBRARY_PATH="$(python -c 'import sys; print(sys.base_prefix)')/lib:$LD_LIBRARY_PATH"
+                cargo test --no-default-features

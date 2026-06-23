@@ -39,5 +39,8 @@ binding = "PyO3"               # Default value, can be omitted
 debug = false                  # force release build
 
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.ruff.lint]
 ignore = ["F401", "E402"]
