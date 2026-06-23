@@ -56,6 +56,15 @@ pub fn sabre_layout_and_routing(
     let mut starting_layouts: Vec<Vec<Option<u32>>> =
         (0..num_random_trials).map(|_| vec![]).collect();
     starting_layouts.append(&mut partial_layouts);
+    // Always run at least one layout trial. When `num_random_trials` is 0 and
+    // no partial layouts are supplied (e.g. optimization level 1 without any
+    // `sabre_starting_layouts`), `starting_layouts` would otherwise be empty,
+    // making the trial iterator empty and panicking on the
+    // `min_by_key(...).unwrap()` below. An empty layout requests a fully
+    // random initial placement.
+    if starting_layouts.is_empty() {
+        starting_layouts.push(vec![]);
+    }
     let outer_rng = match seed {
         Some(seed) => Pcg64Mcg::seed_from_u64(seed),
         None => Pcg64Mcg::from_entropy(),
