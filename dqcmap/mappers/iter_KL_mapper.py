@@ -10,6 +10,16 @@ random.seed(111)
 
 
 class KLMapper(BaseMapper):
+    """Initial-layout mapper based on Kernighan-Lin graph partitioning.
+
+    The conditional-if (cif) pairs of the circuit are treated as a graph whose
+    edges should ideally stay within a single controller. ``run`` repeatedly
+    generates an initial mapping and refines it with Kernighan-Lin passes
+    interleaved with local search, keeping the best mapping found within a
+    fixed time budget (``time_limit``). The result is a logical-to-physical
+    assignment that minimizes the number of cross-controller cif pairs.
+    """
+
     def __init__(self, ctrl_conf, circ_prop):
         super().__init__(ctrl_conf, circ_prop)
         self.ctrl_to_pq = self._ctrl_conf.ctrl_to_pq

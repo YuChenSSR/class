@@ -1,3 +1,4 @@
+import logging
 import random
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
@@ -7,6 +8,8 @@ import networkx as nx
 from dqcmap.basemapper import BaseMapper
 from dqcmap.circuit_prop import CircProperty
 from dqcmap.controller import ControllerConfig
+
+logger = logging.getLogger(__name__)
 
 
 class IntraControllerOptimizer(BaseMapper):
@@ -92,9 +95,11 @@ class IntraControllerOptimizer(BaseMapper):
             if available_physical:
                 physical = available_physical.pop()
                 optimized_mapping[logical] = physical
-                print(f"Remapped logical qubit {logical} to physical qubit {physical}")
+                logger.debug(
+                    f"Remapped logical qubit {logical} to physical qubit {physical}"
+                )
             else:
-                print(f"Error: Unable to map logical qubit {logical}")
+                logger.error(f"Unable to map logical qubit {logical}")
                 return initial_mapping
 
         final_mapping = [optimized_mapping_dict[i] for i in range(self.n_logical)]
@@ -144,8 +149,8 @@ class IntraControllerOptimizer(BaseMapper):
             elif non_edge_physical_qubits:
                 initial_mapping[q] = non_edge_physical_qubits.pop(0)
             else:
-                print(
-                    f"Error: Unable to map logical qubit {q}, physical qubits in the controller {ctrl} are not enough"
+                logger.error(
+                    f"Unable to map logical qubit {q}, physical qubits in the controller {ctrl} are not enough"
                 )
                 return initial_mapping
         best_mapping = initial_mapping
@@ -251,7 +256,7 @@ class RandomIntraControllerMapper(BaseMapper):
                 if physical_qubits:
                     new_mapping[logical_qubit] = physical_qubits.pop()
                 else:
-                    print(f"Error: Not enough physical qubits for controller {ctrl}")
+                    logger.error(f"Not enough physical qubits for controller {ctrl}")
                     return initial_mapping
 
         # Handle any unmapped qubits
@@ -262,9 +267,11 @@ class RandomIntraControllerMapper(BaseMapper):
             if available_physical:
                 physical = available_physical.pop()
                 new_mapping[logical] = physical
-                print(f"Remapped logical qubit {logical} to physical qubit {physical}")
+                logger.debug(
+                    f"Remapped logical qubit {logical} to physical qubit {physical}"
+                )
             else:
-                print(f"Error: Unable to map logical qubit {logical}")
+                logger.error(f"Unable to map logical qubit {logical}")
                 return initial_mapping
 
         return new_mapping
