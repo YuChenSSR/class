@@ -12,6 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 class TrivialPrunerV2(TrivialPruner):
+    """Like :class:`TrivialPruner`, but prunes edges in both directions.
+
+    Pruning operates on single-direction inter-subgraph edges and removes the
+    reverse edge alongside each chosen one, so a link is never left
+    half-connected. Candidates are validated for connectivity and full node
+    retention before being returned.
+    """
+
     def run(self):
         """
         Just randomly remove some connections between different subgraphs,
@@ -44,10 +52,10 @@ class TrivialPrunerV2(TrivialPruner):
                 if reverse in cm_lst:
                     cm_lst.remove(reverse)
 
-            # Got a pruned cm, return it if it is still connected
+            # Got a pruned cm, return it if it is still connected and retains all nodes
             cm = CouplingMap(cm_lst)
 
-            if cm.is_connected():
+            if cm.is_connected() and self._retains_all_nodes(cm_lst):
                 return cm_lst
 
         raise DqcMapException(

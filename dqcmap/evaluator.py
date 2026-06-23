@@ -272,13 +272,31 @@ class EvalV3(EvalV2):
         return self._orig_latency + self._ctrl_latency
 
     def calc_ctrl_latency(self, pairs: List[Any]):
-        """Calculate the feedback control latency
+        """Calculate the feedback control latency for a *transpiled* circuit.
+
+        ``pairs`` is the stateful form returned by
+        ``get_cif_qubit_pairs(qc, with_states=True)``: each entry is
+        ``[[targ_qubit, ctrl_qubit], state]`` where the qubits are physical
+        ``Qubit`` objects. This adapter extracts the physical indices and
+        delegates to :meth:`_calc_ctrl_latency_stateful`.
+        """
+        int_pairs = [
+            [[pair[0][0]._index, pair[0][1]._index], pair[1]] for pair in pairs
+        ]
+        return self._calc_ctrl_latency_stateful(int_pairs)
+
+    def _calc_ctrl_latency_stateful(self, pairs: List[Any]):
+        """Calculate the feedback control latency from index-based cif pairs.
+
         1. If two qubits are controlled by the same controller, the latency is small
         2. If they're controlled by different controllers, the latency is much larger
 
         In this version, if multiple qubits rely on a single measurement result, the
         latency is counted for only once because we assume one controller can broadcast
         the result to all dependents.
+
+        ``pairs`` is ``[[targ_pq, ctrl_pq], state]`` with integer physical
+        qubit indices.
         """
 
         ctrl_latency = 0
@@ -301,8 +319,8 @@ class EvalV3(EvalV2):
         dt_inter = self._conf.dt_inter
 
         for pair in pairs:
-            targ_pq = pair[0][0]._index
-            ctrl_pq = pair[0][1]._index
+            targ_pq = pair[0][0]
+            ctrl_pq = pair[0][1]
             state = pair[1]
 
             is_inner = ctrl_mapping[targ_pq] == ctrl_mapping[ctrl_pq]
@@ -347,8 +365,28 @@ class EvalV3(EvalV2):
         self._num_cif_pairs = num_inter_cif
         return ctrl_latency
 
-    # TODO: implement this function
     def get_init_layout_ctrl_latency(
         self, qc: QuantumCircuit, initial_layout: List[int]
     ):
-        return 0
+        """Evaluate the ctrl latency given the initial mapping on a
+        *non-transpiled* circuit, using the broadcast-aware (V3) semantics.
+
+        Unlike the base :class:`Eval`, this counts the latency for a shared
+        measurement result only once (see :meth:`calc_ctrl_latency`).
+
+        Args:
+            qc: The logical (non-transpiled) circuit.
+            initial_layout: logical-to-physical mapping, i.e.
+                ``initial_layout[logical_index] == physical_index``.
+        """
+        # Stateful cif pairs in terms of *logical* qubits, then map each
+        # logical index through the initial layout to its physical qubit.
+        stateful_pairs = get_cif_qubit_pairs(qc, with_states=True)
+        int_pairs = [
+            [
+                [initial_layout[pair[0][0]._index], initial_layout[pair[0][1]._index]],
+                pair[1],
+            ]
+            for pair in stateful_pairs
+        ]
+        return self._calc_ctrl_latency_stateful(int_pairs)

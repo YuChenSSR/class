@@ -335,12 +335,15 @@ def _build_sabre_dag(dag, num_physical_qubits, qubit_indices):
 
             #### Modification by dqcmap ####
             if node.op.name == "measure":
-                # FIXME: currently we only support single qubit measurement
-                if len(node.cargs) == 1:
-                    assert len(node.qargs) == 1
-                    c_reg = node.cargs[0]._register
-                    qindex = wire_map[node.qargs[0]]
-                    cindex = block_dag.find_bit(node.cargs[0]).index
+                # A measure instruction maps each measured qubit to one
+                # classical bit. Record every (qubit, clbit) pair so that
+                # multi-bit measurements are handled too, not just the
+                # single-qubit case (identical behavior when len == 1).
+                assert len(node.qargs) == len(node.cargs)
+                for q, c in zip(node.qargs, node.cargs):
+                    c_reg = c._register
+                    qindex = wire_map[q]
+                    cindex = block_dag.find_bit(c).index
                     cbits_measure_dict[cindex] = qindex
                     map_creg_qubits.setdefault(c_reg, [])
                     map_creg_qubits[c_reg].append(qindex)

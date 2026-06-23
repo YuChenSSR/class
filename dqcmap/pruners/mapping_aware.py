@@ -12,7 +12,6 @@ from dqcmap.utils.cm import CmHelper
 logger = logging.getLogger(__name__)
 
 
-# FIXME: current impl does not guarantee retaining all nodes
 class MappingAwarePruner(BasePruner):
     """
     For each inter-subgraph edge, check if there exist cross subgraph CNOTs and score this edge
@@ -107,10 +106,10 @@ class MappingAwarePruner(BasePruner):
                 if reverse in cm_lst:
                     cm_lst.remove(reverse)
 
-            # return if coupling map is still connected
+            # return if coupling map is still connected and no node was dropped
             cm = CouplingMap(cm_lst)
 
-            if cm.is_connected():
+            if cm.is_connected() and self._retains_all_nodes(cm_lst):
                 return cm_lst
 
             random.seed(self._base_seed + i)

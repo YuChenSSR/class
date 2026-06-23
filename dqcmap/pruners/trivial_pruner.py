@@ -10,8 +10,16 @@ from dqcmap.exceptions import DqcMapException
 logger = logging.getLogger(__name__)
 
 
-# FIXME: current impl does not guarantee retaining all nodes
 class TrivialPruner(BasePruner):
+    """Randomly prune inter-subgraph edges of the coupling map.
+
+    A fraction ``prob`` of the directed edges that cross controller boundaries
+    is removed at random. Several seeds are tried until a pruning is found that
+    both keeps the coupling map connected and retains every physical qubit
+    (see :meth:`BasePruner._retains_all_nodes`); otherwise a
+    :class:`DqcMapException` is raised.
+    """
+
     def __init__(self, sg_nodes_lst, coupling_map, prob: float = 0.5, seed: int = 1900):
         super().__init__(sg_nodes_lst, coupling_map)
 
@@ -43,10 +51,10 @@ class TrivialPruner(BasePruner):
             for e in pruned_edges:
                 cm_lst.remove(e)
 
-            # return if coupling map is still connected
+            # return if coupling map is still connected and no node was dropped
             cm = CouplingMap(cm_lst)
 
-            if cm.is_connected():
+            if cm.is_connected() and self._retains_all_nodes(cm_lst):
                 return cm_lst
 
         raise DqcMapException(

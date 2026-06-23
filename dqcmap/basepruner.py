@@ -19,6 +19,12 @@ class BasePruner(ABC):
         # edges between different subgraphs
         self._edges = self._get_edges_inter_sg(sg_nodes_lst, coupling_map)
 
+        # All physical qubits present in the original coupling map. Pruning must
+        # not drop any of them: removing every edge incident to a node would
+        # silently shrink the device (the node disappears from the resulting
+        # CouplingMap), which `is_connected()` alone does not catch.
+        self._all_nodes = {pq for e in coupling_map for pq in e}
+
     def _get_edges_inter_sg(self, sg_nodes_lst, coupling_map):
         """Analyze the connections between different subgraphs"""
         pq2sg = {}
@@ -36,6 +42,16 @@ class BasePruner(ABC):
         self._pq2sg = pq2sg
 
         return edges
+
+    def _retains_all_nodes(self, cm_lst: List[List[int]]) -> bool:
+        """Return True iff every physical qubit in the original coupling map
+        still appears in the pruned coupling list ``cm_lst``.
+
+        Used to reject pruning candidates that drop a node by removing all of
+        its incident edges.
+        """
+        remaining = {pq for e in cm_lst for pq in e}
+        return remaining >= self._all_nodes
 
     @abstractmethod
     def run(self) -> Any:
