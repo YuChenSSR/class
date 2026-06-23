@@ -63,3 +63,28 @@ class TestEval:
         latency = e.calc_ctrl_latency(pairs)
 
         assert isclose(latency, 5e-8 * 3)
+
+    def test_eval_v3_get_init_layout_ctrl_latency(self):
+        """EvalV3 must compute the init-layout ctrl latency using the
+        broadcast-aware (deduped) semantics, not the placeholder 0."""
+        e = EvalV3(TestEval.conf)
+
+        # TestEval.qc has a single cif pair (q1 conditioned on the measurement
+        # of q0). Mapping the two logical qubits to *different* controllers
+        # yields a single inter-controller communication (dt_inter = 5e-7).
+        inter_layout = [0, 21]
+        assert isclose(e.get_init_layout_ctrl_latency(TestEval.qc, inter_layout), 5e-7)
+
+        # Mapping both qubits to the *same* controller yields one inner
+        # communication (dt_inner = 5e-8).
+        intra_layout = [0, 1]
+        assert isclose(e.get_init_layout_ctrl_latency(TestEval.qc, intra_layout), 5e-8)
+
+        # An identity layout must agree with calc_ctrl_latency on the same
+        # (logical) stateful pairs.
+        identity_layout = list(range(TestEval.qc.num_qubits))
+        pairs = get_cif_qubit_pairs(TestEval.qc, with_states=True)
+        assert isclose(
+            e.get_init_layout_ctrl_latency(TestEval.qc, identity_layout),
+            e.calc_ctrl_latency(pairs),
+        )

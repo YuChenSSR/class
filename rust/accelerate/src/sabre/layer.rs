@@ -254,3 +254,89 @@ impl ExtendedSet {
         self.qubits.swap(a.index(), b.index());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    fn pq(i: u32) -> PhysicalQubit {
+        PhysicalQubit::new(i)
+    }
+
+    /// Distance matrix for the line graph 0--1--2--3 (dist == |i - j|).
+    fn line_dist() -> Array2<f64> {
+        array![
+            [0., 1., 2., 3.],
+            [1., 0., 1., 2.],
+            [2., 1., 0., 1.],
+            [3., 2., 1., 0.],
+        ]
+    }
+
+    #[test]
+    fn front_layer_insert_remove_active() {
+        let mut fl = FrontLayer::new(4);
+        assert!(fl.is_empty());
+
+        let n0 = NodeIndex::new(0);
+        fl.insert(n0, [pq(0), pq(3)]);
+        assert!(!fl.is_empty());
+        assert!(fl.is_active(pq(0)));
+        assert!(fl.is_active(pq(3)));
+        assert!(!fl.is_active(pq(1)));
+
+        fl.remove(&n0);
+        assert!(fl.is_empty());
+        assert!(!fl.is_active(pq(0)));
+    }
+
+    #[test]
+    fn front_layer_scores() {
+        let dist = line_dist();
+        let mut fl = FrontLayer::new(4);
+
+        // An empty layer always scores zero.
+        assert_eq!(fl.score([pq(0), pq(1)], &dist.view()), 0.0);
+        assert_eq!(fl.total_score(&dist.view()), 0.0);
+
+        fl.insert(NodeIndex::new(0), [pq(0), pq(3)]);
+        // A single gate between distance-3 qubits.
+        assert_eq!(fl.total_score(&dist.view()), 3.0);
+        // Swapping q0<->q1 moves the gate to (1, 3): delta = dist[1][3] - dist[0][3] = -1.
+        assert_eq!(fl.score([pq(0), pq(1)], &dist.view()), -1.0);
+    }
+
+    #[test]
+    fn front_layer_apply_swap_updates_partner() {
+        let dist = line_dist();
+        let mut fl = FrontLayer::new(4);
+        fl.insert(NodeIndex::new(0), [pq(0), pq(3)]);
+
+        fl.apply_swap([pq(0), pq(1)]);
+        // The gate now lives on physical qubits (1, 3); the partner reference
+        // for qubit 3 must have been updated from 0 to 1.
+        assert!(!fl.is_active(pq(0)));
+        assert!(fl.is_active(pq(1)));
+        assert!(fl.is_active(pq(3)));
+        assert_eq!(fl.total_score(&dist.view()), 2.0);
+    }
+
+    #[test]
+    fn extended_set_push_score_clear() {
+        let dist = line_dist();
+        let mut es = ExtendedSet::new(4);
+        assert!(es.is_empty());
+
+        es.push([pq(0), pq(3)]);
+        assert_eq!(es.len(), 1);
+        assert!(!es.is_empty());
+        assert_eq!(es.total_score(&dist.view()), 3.0);
+        // Swapping q0<->q1 brings the (0, 3) gate one step closer: delta = -1.
+        assert_eq!(es.score([pq(0), pq(1)], &dist.view()), -1.0);
+
+        es.clear();
+        assert!(es.is_empty());
+        assert_eq!(es.total_score(&dist.view()), 0.0);
+    }
+}

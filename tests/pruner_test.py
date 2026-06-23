@@ -1,3 +1,5 @@
+from qiskit.transpiler.coupling import CouplingMap
+
 from dqcmap.pruners import TrivialPruner, TrivialPrunerV2
 from dqcmap.pruners.mapping_aware import MappingAwarePruner
 
@@ -124,3 +126,50 @@ class TestPruners:
                 flag = True
 
         assert flag
+
+    def test_retains_all_nodes_helper(self):
+        """The retention check accepts a full coupling list and rejects one
+        that has dropped a physical qubit (node)."""
+        assert self.pruner._retains_all_nodes(CM)
+
+        # Drop every edge incident to node 5 -> node 5 no longer appears.
+        cm_missing_node = [e for e in CM if 5 not in e]
+        assert not self.pruner._retains_all_nodes(cm_missing_node)
+
+
+# A coupling map where node 4 forms a singleton subgraph and connects to the
+# rest *only* through inter-subgraph edges, while subgraphs A and B are joined
+# by two redundant edges (0-2 and 1-2). Pruning the single 3-4 edge would
+# disconnect node 4 from the graph yet leave {0,1,2,3} connected -- the exact
+# situation the old pruners failed to reject.
+SINGLETON_CM = [
+    [0, 1],
+    [1, 0],
+    [0, 2],
+    [2, 0],
+    [1, 2],
+    [2, 1],
+    [2, 3],
+    [3, 2],
+    [3, 4],
+    [4, 3],
+]
+SINGLETON_SG = [[0, 1], [2, 3], [4]]
+
+
+class TestPrunerNodeRetention:
+    def test_pruner_retains_all_nodes(self):
+        pruner = TrivialPruner(SINGLETON_SG, SINGLETON_CM, prob=0.5)
+        pruned = pruner.run()
+
+        nodes = {pq for e in pruned for pq in e}
+        assert nodes == {0, 1, 2, 3, 4}  # node 4 must not be dropped
+        assert CouplingMap(pruned).is_connected()
+
+    def test_pruner_v2_retains_all_nodes(self):
+        pruner = TrivialPrunerV2(SINGLETON_SG, SINGLETON_CM, prob=0.5)
+        pruned = pruner.run()
+
+        nodes = {pq for e in pruned for pq in e}
+        assert nodes == {0, 1, 2, 3, 4}
+        assert CouplingMap(pruned).is_connected()
