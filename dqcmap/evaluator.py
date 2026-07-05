@@ -219,11 +219,36 @@ class Eval:
 
 
 class EvalV2(Eval):
+    #: default gate times (seconds); kept as class constants so the historical
+    #: behavior (1q = 20 ns, 2q = 40 ns) is preserved when not overridden
+    DEFAULT_T_1Q = 2e-8
+    DEFAULT_T_2Q = 4e-8
+
+    def __init__(
+        self,
+        ctrl_conf: ControllerConfig,
+        cif_pairs: Optional[List[List[Qubit]]] = None,
+        *,
+        t_1q: float = DEFAULT_T_1Q,
+        t_2q: float = DEFAULT_T_2Q,
+    ):
+        """
+        Args:
+            t_1q: Duration of a one-qubit gate in seconds (default 20 ns).
+            t_2q: Duration of a two-qubit gate in seconds (default 40 ns).
+                Overriding this makes device-evolution sensitivity studies
+                (e.g. ``bench.py --t``) actually affect the evaluation, which
+                the hardcoded constants previously prevented.
+        """
+        super().__init__(ctrl_conf, cif_pairs)
+        self._t_1q = t_1q
+        self._t_2q = t_2q
+
     def calc_orig_latency(self, qc: QuantumCircuit, backend: Backend):
         """
         Only count 1-q operation and 2-q operation time
-        1-q: 20 ns
-        2-q: 40 ns
+        1-q: 20 ns (default, see ``t_1q``)
+        2-q: 40 ns (default, see ``t_2q``)
         """
         res = 0.0
         for val in qc.data:
@@ -231,9 +256,9 @@ class EvalV2(Eval):
                 operation, qargs, _ = val.operation, val.qubits, val.clbits
                 if operation.name != "measure":
                     if len(qargs) == 2:
-                        res += 4e-8
+                        res += self._t_2q
                     elif len(qargs) == 1:
-                        res += 2e-8
+                        res += self._t_1q
 
         return res
 

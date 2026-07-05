@@ -23,6 +23,7 @@ class QiskitDefaultCompiler(BaseCompiler):
         heuristic="dqcmap",
         swap_trials=5,
         show_mapper_runtime=False,
+        layout_heuristic=None,
     ):
         return transpile(
             qc,

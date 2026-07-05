@@ -1,0 +1,5 @@
+bench_name	num_qubits	compiler_type	percent_inter	runtime	num_op	depth	init_ctrl_latency	num_cif_pairs	impl
+pe	20	multi_ctrl	0.3232391970057846	2.938999999999998e-05	472	179	1.8050000000000056e-05	19	map+layout+route
+qft	20	multi_ctrl	0.0	1.449999999999998e-05	270	99	9.500000000000007e-06	0	map+layout+route
+random	20	multi_ctrl	0.08954332902198697	0.00010051000000000101	2099	778	1.6849999999999993e-05	18	map+layout+route
+cc	12	multi_ctrl	0.29880478087649415	1.0039999999999995e-05	159	112	1.1650000000000004e-05	6	map+layout+route

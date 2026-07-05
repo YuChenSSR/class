@@ -47,6 +47,13 @@ class DqcMapLayoutPlugin(PassManagerStagePlugin):
                 and pass_manager_config.routing_method != "sabre",
             )
         elif optimization_level == 1:
+            # Ablation hook: `layout_heuristic` (when set) overrides `heuristic`
+            # for the layout stage only, so the layout-phase DM0 tie-break can
+            # be switched off while keeping DM0 routing. Default None preserves
+            # the historical behavior (layout uses the same heuristic).
+            layout_heuristic = getattr(
+                pass_manager_config, "layout_heuristic", None
+            ) or getattr(pass_manager_config, "heuristic", "decay")
             layout_pass = DqcMapLayout(
                 coupling_map,
                 max_iterations=2,
@@ -59,7 +66,7 @@ class DqcMapLayoutPlugin(PassManagerStagePlugin):
                     pass_manager_config, "sabre_starting_layouts", None
                 ),
                 ctrl_conf=getattr(pass_manager_config, "ctrl_conf", None),
-                heuristic=getattr(pass_manager_config, "heuristic", "decay"),
+                heuristic=layout_heuristic,
             )
         elif optimization_level == 2:
             layout_pass = SabreLayout(

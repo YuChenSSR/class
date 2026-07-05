@@ -93,6 +93,24 @@ def get_args():
         "--heuristic", default="dqcmap", type=str, help="Heuristic for dqcswap routing."
     )
     parser.add_argument(
+        "--layout-heuristic",
+        dest="layout_heuristic",
+        default=None,
+        type=str,
+        choices=["decay", "dqcmap", "dm1"],
+        help="Ablation switch: heuristic for the *layout* stage only "
+        "(routing keeps --heuristic). Default: same as --heuristic.",
+    )
+    parser.add_argument(
+        "--t-eval",
+        dest="t_eval",
+        action="store_true",
+        help="Apply the --t scaling factor to the EvalV2 two-qubit gate time "
+        "(t_2q = 40ns x t). Without this flag EvalV2 uses the hardcoded "
+        "20/40 ns gate times and --t only affects backend pulse properties, "
+        "which EvalV2 ignores.",
+    )
+    parser.add_argument(
         "--wr", default=0, type=int, help="Whether to write results to csv."
     )
     parser.add_argument(
@@ -424,6 +442,7 @@ def run_circuit(
         heuristic=ARGS.heuristic,
         swap_trials=ARGS.rt_trial,
         show_mapper_runtime=ARGS.show_mapper_runtime,
+        layout_heuristic=ARGS.layout_heuristic,
     )
     layout = tqc.layout
     final_layout = layout.final_virtual_layout(filter_ancillas=True)
@@ -477,7 +496,11 @@ def main():
         dev.configuration().n_qubits, num_ctrls, strategy=MapStratety.CONNECT, cm=cm
     )
     # evaluator = EvalV3(conf)
-    evaluator = EvalV2(conf)
+    if ARGS.t_eval:
+        # opt-in: make --t actually scale the 2q gate time seen by EvalV2
+        evaluator = EvalV2(conf, t_2q=EvalV2.DEFAULT_T_2Q * ARGS.t)
+    else:
+        evaluator = EvalV2(conf)
     # evaluator = Eval(conf)
 
     compiler_name_lst = parse_compiler_methods(ARGS.comp)
@@ -535,7 +558,8 @@ def main():
                 num_circuits, n, n, ARGS.p, False, seed_base=seed, qc_type=ARGS.bench
             )
             qc_name_lst = [ARGS.bench] * num_circuits
-            qc_nq_lst = nq_lst
+            # one entry per generated circuit; using nq_lst here crashes when --c > 1
+            qc_nq_lst = [n] * num_circuits
         if ARGS.parallel:
             results = Parallel(n_jobs=-1)(
                 delayed(run_circuit)(

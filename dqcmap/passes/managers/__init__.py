@@ -107,6 +107,7 @@ def generate_dqcmap_pass_manager(
     heuristic="dqcmap",
     sabre_starting_layouts=None,
     swap_trials=5,
+    layout_heuristic=None,
 ):
     """Generate a preset :class:`~.PassManager`
 
@@ -305,6 +306,8 @@ def generate_dqcmap_pass_manager(
     setattr(pm_config, "heuristic", heuristic)
     setattr(pm_config, "sabre_starting_layouts", sabre_starting_layouts)
     setattr(pm_config, "swap_trials", swap_trials)
+    # Layout-stage-only heuristic override (ablation hook); None = same as `heuristic`
+    setattr(pm_config, "layout_heuristic", layout_heuristic)
 
     if optimization_level == 0:
         pm = level_0_pass_manager(pm_config)

@@ -1,7 +1,7 @@
 import random
 import time
 from collections import defaultdict
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from dqcmap.basemapper import BaseMapper
 from dqcmap.exceptions import DqcMapException
@@ -10,7 +10,26 @@ random.seed(111)
 
 
 class KLMapper(BaseMapper):
-    def __init__(self, ctrl_conf, circ_prop):
+    def __init__(
+        self,
+        ctrl_conf,
+        circ_prop,
+        max_iters: Optional[int] = None,
+        rng_seed: Optional[int] = None,
+    ):
+        """
+        Args:
+            max_iters: If set, run exactly this many restart iterations instead
+                of the historical 4-second wall-clock budget. A fixed iteration
+                budget makes results machine-independent (the wall-clock budget
+                yields a machine-dependent number of restarts).
+            rng_seed: If set, use a dedicated ``random.Random(rng_seed)``
+                instead of the module-global RNG (which is seeded once at
+                import time and shared with other modules). Required for
+                run-to-run determinism independent of call order.
+
+            Defaults (None, None) preserve the historical behavior exactly.
+        """
         super().__init__(ctrl_conf, circ_prop)
         self.ctrl_to_pq = self._ctrl_conf.ctrl_to_pq
         self.cif_pairs = self._circ_prop.cif_pairs
@@ -19,6 +38,8 @@ class KLMapper(BaseMapper):
         self.all_physical_qubits = [
             pq for pqs in self.ctrl_to_pq.values() for pq in pqs
         ]
+        self._max_iters = max_iters
+        self._rng = random if rng_seed is None else random.Random(rng_seed)
 
         self.graph = defaultdict(list)
         for u, v in self.cif_pairs:
@@ -31,7 +52,13 @@ class KLMapper(BaseMapper):
         best_mapping = None
         best_score = float("inf")
 
-        while time.time() - start_time < time_limit:
+        num_iters = 0
+        while (
+            (num_iters < self._max_iters)
+            if self._max_iters is not None
+            else (time.time() - start_time < time_limit)
+        ):
+            num_iters += 1
             current_mapping = self.generate_initial_mapping()
             current_score = self.evaluate_mapping(current_mapping)
 
@@ -81,7 +108,7 @@ class KLMapper(BaseMapper):
             current_score = best_score
 
             for _ in range(depth):
-                q1, q2 = random.sample(range(self.n_logical), 2)
+                q1, q2 = self._rng.sample(range(self.n_logical), 2)
                 current_mapping[q1], current_mapping[q2] = (
                     current_mapping[q2],
                     current_mapping[q1],
@@ -132,7 +159,7 @@ class KLMapper(BaseMapper):
                     best_ctrl = ctrl
 
             if best_ctrl is not None:
-                pq = random.choice(available_pqs[best_ctrl])
+                pq = self._rng.choice(available_pqs[best_ctrl])
                 available_pqs[best_ctrl].remove(pq)
 
                 mapping[q] = pq
@@ -144,7 +171,7 @@ class KLMapper(BaseMapper):
             else:
                 for ctrl, pqs in available_pqs.items():
                     if pqs:
-                        pq = random.choice(pqs)
+                        pq = self._rng.choice(pqs)
                         available_pqs[ctrl].remove(pq)
                         mapping[q] = pq
                         break
