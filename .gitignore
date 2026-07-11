@@ -173,6 +173,9 @@ cython_debug/
 *.stderr
 *.stdout
 
+# oh-my-mermaid architecture docs
+.omm/
+
 # temp
 temp.*
 *.swp
